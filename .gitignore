@@ -1,0 +1,7 @@
+/Manifest.toml
+/.julia/
+*.jl.cov
+*.jl.pidfile
+*.jl.mem
+.DS_Store
+.local/
