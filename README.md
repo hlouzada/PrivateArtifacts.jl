@@ -181,13 +181,13 @@ The allowed values are `github`, `gitlab`, `http`, and `s3`.
 
 ### GitHub
 
-GitHub entries take no extra options. Release asset URLs are resolved through the GitHub API
-and other HTTPS URLs are downloaded directly. GitHub Enterprise hosts are supported by setting
-`kind = "github"`.
+GitHub entries take no extra options. Release asset URLs are resolved through the GitHub API,
+raw file URLs are downloaded from the GitHub API, and other HTTPS URLs are downloaded directly.
+GitHub Enterprise hosts are supported by setting `kind = "github"`.
 
 ```toml
 [[model.download_private]]
-url = "https://github.com/acme/model/releases/download/v3.1.0/model.tar.gz"
+url = "https://github.com/acme/model/raw/91f3ecf327d1de943fe076657833252791ba9f60/model.tar.gz"
 sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 [[model.download_private]]
@@ -208,7 +208,14 @@ URLs on `www.github.com`, `api.github.com` and `raw.githubusercontent.com` have 
 
 - A release download URL `https://HOST/OWNER/REPO/releases/download/TAG/FILE` is looked up
   with the REST API, and the asset is downloaded from the API.
+- A raw file URL `https://HOST/OWNER/REPO/raw/REF/PATH` is downloaded from the contents
+  endpoint of the REST API, `API/repos/OWNER/REPO/contents/PATH?ref=REF`. The web host does
+  not accept API tokens for files of private repositories.
 - Any other URL is downloaded directly.
+
+In a raw file URL, `REF` is a commit, a branch or tag name, `refs/heads/NAME` or
+`refs/tags/NAME`. The name must not contain `/`, because the rest of the URL is read as the
+path. Use the commit for a branch or tag such as `release/v1`.
 
 **Without a token variable**, the package uses `gh`:
 
@@ -216,7 +223,8 @@ URLs on `www.github.com`, `api.github.com` and `raw.githubusercontent.com` have 
    checks `gh auth token --hostname HOST` and runs `gh auth login --hostname HOST` if `gh` has
    no token.
 2. A release download URL is downloaded with `gh release download`.
-3. Other URLs, and release files whose names contain `*`, `?`, `[`, `]` or `\`, are downloaded
+3. A raw file URL is downloaded with `gh api` from the same contents endpoint.
+4. Other URLs, and release files whose names contain `*`, `?`, `[`, `]` or `\`, are downloaded
    with the token from `gh auth token --hostname HOST`.
 
 GitHub Enterprise Server hosts need a previous `gh auth login --hostname HOST`. Hosts that end

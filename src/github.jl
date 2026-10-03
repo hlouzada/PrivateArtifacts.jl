@@ -24,7 +24,10 @@ api_url(host::AbstractString)::String =
     "https://$host/api/v3"
 
 download_headers(url::AbstractString)::Vector{Pair{String, String}} =
-    endswith(url, r"/releases/assets/[0-9]+") ? ["Accept" => "application/octet-stream"] : Pair{String, String}[]
+    endswith(url, r"/releases/assets/[0-9]+") ? ["Accept" => "application/octet-stream"] :
+    # Without this media type the contents API returns the file as base64 in JSON.
+    contains(url, r"^https://[^/?#]+(?:/api/v3)?/repos/[^/?#]+/[^/?#]+/contents/") ? ["Accept" => "application/vnd.github.raw"] :
+    Pair{String, String}[]
 
 # `tag` and `file` stay percent-encoded.
 function parse_release_url(source::GitHubSource)::Union{NamedTuple, Nothing}
@@ -36,7 +39,30 @@ function parse_release_url(source::GitHubSource)::Union{NamedTuple, Nothing}
     (; owner, repository, tag, file)
 end
 
+# The web host answers 404 to API tokens for a raw file of a private repository.
+# `ref` and `path` stay percent-encoded. A ref is one segment, or
+# `refs/heads/NAME` or `refs/tags/NAME`, since a longer ref cannot be told apart
+# from the path.
+function parse_raw_url(source::GitHubSource)::Union{NamedTuple, Nothing}
+    url_authority(source.url) in (source.host, "www.github.com") || return nothing
+    m = match(r"^https://[^/]+/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/raw/((?:refs/(?:heads|tags)/)?[^/?#]+)/((?:[^/?#]+/)*[^/?#]+)\z", source.url)
+    m === nothing && return nothing
+    owner, repository, ref, path = m.captures
+    any(segment -> unescape(segment) in (".", ".."), split("$ref/$path", '/')) && return nothing
+    (; owner, repository, ref, path)
+end
+
+# `+`, `&` and `=` would change the meaning of a query, and `gh api` expands
+# `{owner}`, `{repo}` and `{branch}` from the repository in its working directory.
+percent_encode(value::AbstractString)::String =
+    replace(value, r"[^A-Za-z0-9._~%/-]" => c -> join("%" * uppercase(string(byte; base = 16, pad = 2)) for byte in codeunits(c)))
+
+contents_endpoint(raw::NamedTuple)::String =
+    "repos/$(raw.owner)/$(raw.repository)/contents/$(percent_encode(raw.path))?ref=$(percent_encode(raw.ref))"
+
 function download_url(source::GitHubSource, auth::Pair{String, String}; downloader::Downloads.Downloader = Downloads.Downloader())::String
+    raw = parse_raw_url(source)
+    raw === nothing || return "$(api_url(source.host))/$(contents_endpoint(raw))"
     release = parse_release_url(source)
     release === nothing && return source.url
     (; owner, repository, tag, file) = release
@@ -120,6 +146,17 @@ function gh_release_download(gh::AbstractString, source::GitHubSource, release, 
     true
 end
 
+function gh_raw_download(gh::AbstractString, source::GitHubSource, raw::NamedTuple, archive::AbstractString, artifact::AbstractString)::Nothing
+    accept = "Accept: application/vnd.github.raw"
+    command = gh_command(`$gh api --hostname=$(source.host) --header=$accept -- $(contents_endpoint(raw))`, source.host)
+    cli_download(
+        command, archive,
+        "`gh api` failed for artifact `$artifact` from $(source.url). " *
+        "GitHub answers 404 when the file does not exist or the GitHub CLI cannot read the repository. " *
+        "Check `gh auth status --hostname $(source.host)`.",
+    )
+end
+
 function fetch_archive(source::GitHubSource, archive::AbstractString, artifact::AbstractString)::Nothing
     token = find_token(source.host, artifact)
     if token === nothing
@@ -138,6 +175,8 @@ function fetch_archive(source::GitHubSource, archive::AbstractString, artifact::
         end
         release = parse_release_url(source)
         release !== nothing && gh_release_download(gh, source, release, archive, artifact) && return
+        raw = parse_raw_url(source)
+        raw === nothing || return gh_raw_download(gh, source, raw, archive, artifact)
         token === nothing && (token = gh_token(gh, source.host))
     end
     check_token(token, source.host)

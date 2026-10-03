@@ -569,6 +569,41 @@ withenv(AMBIENT...) do
         @test isempty(PA.download_headers("https://api.github.com/repos/acme/project/tarball/v1.0.0"))
         @test isempty(PA.download_headers(raw))
 
+        # Raw file URLs on the web host are downloaded from the contents API.
+        contents(api, ref, path) = "$api/repos/acme/project/contents/$path?ref=$ref"
+        sha = "91f3ecf327d1de943fe076657833252791ba9f60"
+        for (url, expected) in (
+            "https://github.com/acme/project/raw/$sha/lib.tar.gz" => contents("https://api.github.com", sha, "lib.tar.gz"),
+            "https://www.github.com/acme/project/raw/main/dir/lib%20x.tar.gz" => contents("https://api.github.com", "main", "dir/lib%20x.tar.gz"),
+            "https://github.com/acme/project/raw/refs/heads/main/lib.tar.gz" => contents("https://api.github.com", "refs/heads/main", "lib.tar.gz"),
+            "https://github.com/acme/project/raw/refs/tags/v1/lib.tar.gz" => contents("https://api.github.com", "refs/tags/v1", "lib.tar.gz"),
+            "https://github.com/acme/project/raw/v1.0.0+2/lib.tar.gz" => contents("https://api.github.com", "v1.0.0%2B2", "lib.tar.gz"),
+            "https://github.com/acme/project/raw/a&b=c/lib.tar.gz" => contents("https://api.github.com", "a%26b%3Dc", "lib.tar.gz"),
+            # A ref with `/` is read as a one-segment ref followed by the path.
+            "https://github.com/acme/project/raw/feature/x/lib.tar.gz" => contents("https://api.github.com", "feature", "x/lib.tar.gz"),
+            "https://acme.ghe.com/acme/project/raw/main/lib.tar.gz" => contents("https://api.acme.ghe.com", "main", "lib.tar.gz"),
+            "https://ghe.example.com:8443/acme/project/raw/main/lib.tar.gz" => contents("https://ghe.example.com:8443/api/v3", "main", "lib.tar.gz"),
+        )
+            source = occursin("ghe.example.com", url) ? source_of(url; kind = "github") : source_of(url)
+            @test PA.download_url(source, "Authorization" => "Bearer secret") == expected
+            @test PA.download_headers(expected) == ["Accept" => "application/vnd.github.raw"]
+        end
+        for url in (
+            "https://github.com/acme/project/raw/main/lib.tar.gz?download=1",
+            "https://github.com/acme/project/raw/main/",
+            "https://github.com/acme/project/raw/main",
+            "https://github.com/acme/project/raw/main//lib.tar.gz",
+            "https://github.com/acme/project/raw/main/../../other/raw/main/lib.tar.gz",
+            "https://github.com/acme/project/raw/%2E%2E/lib.tar.gz",
+            "https://github.com/acme/project/raw/refs/heads/main/./lib.tar.gz",
+            "https://github.com/acme/project/blob/main/lib.tar.gz",
+        )
+            @test PA.parse_raw_url(source_of(url)) === nothing
+        end
+        @test PA.parse_raw_url(GitHubSource("https://github.com/acme/project/raw/main/lib.tar.gz", "ghe.example.com")) === nothing
+        @test PA.download_url(source_of(raw), "Authorization" => "Bearer secret") == raw
+        @test isempty(PA.download_headers("https://files.example.com/acme/project/contents/lib.tar.gz"))
+
         @test source_of("https://www.github.com/acme/project/releases/download/v1/lib.tar.gz").host == "github.com"
         @test PA.parse_release_url(source_of("https://www.github.com/acme/project/releases/download/v1/lib.tar.gz")).tag == "v1"
         for host in ("evil.github.com", "evil.github.com:443", "a.localhost", "a.acme.ghe.com")
@@ -616,6 +651,20 @@ withenv(AMBIENT...) do
                         PA.fetch_archive(enterprise, archive, "my_lib")
                         @test readlines(log)[end-3:end] == ["", "", "env", "env"]
                     end
+
+                    # Raw file URLs are downloaded with `gh api`, which would expand
+                    # `{owner}` from the repository in the working directory.
+                    raw_source = source_of("https://github.com/acme/project/raw/refs/heads/main/dir/lib%20{owner}.tar.gz")
+                    log = fake_cli(bin, "gh", "printf data"; variables)
+                    PA.fetch_archive(raw_source, archive, "my_lib")
+                    @test read(archive, String) == "data"
+                    @test readlines(log) == [
+                        "api", "--hostname=github.com", "--header=Accept: application/vnd.github.raw", "--",
+                        "repos/acme/project/contents/dir/lib%20%7Bowner%7D.tar.gz?ref=refs/heads/main", "", "env", "env", "", "",
+                    ]
+                    fake_cli(bin, "gh", "echo '{\"message\": \"Not Found\"}'; echo 'gh: Not Found (HTTP 404)' >&2; exit 1")
+                    @test_throws "`gh api` failed for artifact `my_lib` from $(raw_source.url). GitHub answers 404 when the file does not exist or the GitHub CLI cannot read the repository. Check `gh auth status --hostname github.com`.\ngh: Not Found (HTTP 404)" PA.fetch_archive(raw_source, archive, "my_lib")
+                    @test !isfile(archive)
 
                     # gh would answer for github.com, so it is not asked.
                     rm(log)

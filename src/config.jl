@@ -109,6 +109,15 @@ function cli_output(command::Base.AbstractCmd, message::AbstractString)::String
     output
 end
 
+# Streams standard output to `path`, since an archive need not fit in memory.
+function cli_download(command::Base.AbstractCmd, path::AbstractString, message::AbstractString)::Nothing
+    errors = IOBuffer()
+    succeeded = open(file -> success(spawn(command, message, devnull, file, errors)), path, "w")
+    succeeded && return
+    rm(path; force = true)
+    error(rstrip("$message\n$(scrub(String(take!(errors))))"))
+end
+
 function cli_value(command::Base.AbstractCmd, message::AbstractString)::String
     value = cli_output(command, message)
     isempty(value) && error(message)
