@@ -1,17 +1,7 @@
 const GITLAB_COM = "gitlab.com"
 const GLAB_TOKEN_ENVS = ("GITLAB_TOKEN", "GITLAB_ACCESS_TOKEN", "OAUTH_TOKEN")
 
-struct GitLabSource <: Source
-    url::String
-    host::String
-    headers::Headers
-    GitLabSource(url, headers) = new(url, https_host(url), Tuple(headers))
-end
-
-function gitlab_source(url::AbstractString, settings::AbstractDict, artifact::AbstractString)::GitLabSource
-    check_settings(settings, ("headers",), "gitlab", artifact)
-    GitLabSource(url, parse_headers(settings, artifact))
-end
+const GitLabSource = HeaderSource{:gitlab}
 
 # An empty `directory` keeps glab from reading the config of a repository.
 glab_command(command::Base.AbstractCmd, directory::AbstractString)::Base.AbstractCmd =
@@ -55,6 +45,3 @@ function cli_token(source::GitLabSource, artifact::AbstractString)::String
         token
     end
 end
-
-fetch_archive(source::GitLabSource, archive::AbstractString, artifact::AbstractString)::Nothing =
-    download_archive(source.url, archive, request_headers(source, artifact)...)

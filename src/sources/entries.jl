@@ -10,7 +10,12 @@ function infer_kind(url::AbstractString)::String
     "http"
 end
 
-const SOURCES = Dict("github" => github_source, "gitlab" => gitlab_source, "s3" => s3_source, "http" => http_source)
+const SOURCES = Dict(
+    "github" => github_source,
+    "gitlab" => (url, settings, artifact) -> header_source(:gitlab, url, settings, artifact),
+    "s3" => s3_source,
+    "http" => (url, settings, artifact) -> header_source(:http, url, settings, artifact),
+)
 
 function parse_source(entry, artifact::AbstractString)::NamedTuple
     context = "a `[[$artifact.download_private]]` entry"
