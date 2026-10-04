@@ -49,7 +49,7 @@ function s3_source(url::AbstractString, settings::AbstractDict, artifact::Abstra
         host === nothing || error(
             "The `host` of artifact `$artifact` applies only to an `s3://` URL. An https URL names its host itself.",
         )
-        authority = https_authority(url, artifact)
+        authority = https_host(url)
         m = match(r"^https://[^/]+/([^?#]*)\z", url)
         m === nothing && error("Expected an S3 object URL without query or fragment for artifact `$artifact`, got $url")
         path = percent_decode(m[1], url)

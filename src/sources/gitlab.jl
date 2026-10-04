@@ -5,12 +5,12 @@ struct GitLabSource <: Source
     url::String
     host::String
     headers::Headers
-    GitLabSource(url, host, headers) = new(url, host, Tuple(headers))
+    GitLabSource(url, headers) = new(url, https_host(url), Tuple(headers))
 end
 
 function gitlab_source(url::AbstractString, settings::AbstractDict, artifact::AbstractString)::GitLabSource
     check_settings(settings, ("headers",), "gitlab", artifact)
-    GitLabSource(url, https_authority(url, artifact), parse_headers(settings, artifact))
+    GitLabSource(url, parse_headers(settings, artifact))
 end
 
 # An empty `directory` keeps glab from reading the config of a repository.

@@ -14,7 +14,7 @@
             public_hash, Pkg.Artifacts.archive_artifact(public_hash, public_archive)
         end
         public_tree_hash = bytes2hex(public_hash.bytes)
-        local_source = HTTPSource("file://$archive", "localhost", [])
+        local_source = LocalSource(archive)
         wrong = "0"^40
 
         Artifacts.with_artifacts_directory(joinpath(directory, "wrong_sha256")) do
@@ -34,7 +34,7 @@
             junk_sha256 = bytes2hex(open(PA.SHA.sha256, junk))
             message = withenv("SECRET_FOR_TEST" => "leaked-secret") do
                 try
-                    PA.install_archive("my_lib", hash, HTTPSource("file://$junk", "localhost", []), junk_sha256)
+                    PA.install_archive("my_lib", hash, LocalSource(junk), junk_sha256)
                 catch
                     join((sprint(showerror, error.exception) for error in current_exceptions()), "\n")
                 end

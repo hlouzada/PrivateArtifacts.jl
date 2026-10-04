@@ -14,11 +14,11 @@
     @test PA.parse_release_url(source_of(release_url("release/v1.0.0+2", "lib.tar.gz"))) ==
         (owner = "acme", repository = "project", tag = "release/v1.0.0+2", file = "lib.tar.gz")
     @test PA.parse_release_url(source_of("https://GHE.example.com:8443/acme/project/releases/download/v1/lib.tar.gz")).owner == "acme"
-    @test PA.parse_release_url(GitHubSource(release_url("v1", "lib.tar.gz"), "ghe.example.com")) === nothing
+    @test PA.parse_release_url(GitHubSource("https://api.github.com/acme/project/releases/download/v1/lib.tar.gz")) === nothing
     @test PA.parse_release_url(source_of("https://github.com/acme/project?x/releases/download/v1/lib.tar.gz"; kind = "github")) === nothing
     @test PA.parse_release_url(source_of("https://api.github.com/repos/acme/project/releases/assets/1")) === nothing
     @test PA.parse_release_url(source_of("https://github.com/acme/project/archive/refs/tags/v1.0.0.tar.gz")) === nothing
-    @test PA.parse_release_url(GitHubSource(release_url("v1", "lib.tar.gz\n"), "github.com")) === nothing
+    @test PA.parse_release_url(GitHubSource(release_url("v1", "lib.tar.gz\n"))) === nothing
 
     release = Dict(
         "tag_name" => "v1.0.0+2",
@@ -73,7 +73,7 @@
     )
         @test PA.parse_raw_url(source_of(url)) === nothing
     end
-    @test PA.parse_raw_url(GitHubSource("https://github.com/acme/project/raw/main/lib.tar.gz", "ghe.example.com")) === nothing
+    @test PA.parse_raw_url(GitHubSource("https://raw.githubusercontent.com/acme/project/raw/main/lib.tar.gz")) === nothing
     @test PA.download_url(source_of(raw), "Authorization" => "Bearer secret") == raw
     @test isempty(PA.download_headers("https://files.example.com/acme/project/contents/lib.tar.gz"))
 
@@ -95,7 +95,13 @@
         if !Sys.iswindows()
             bin = joinpath(directory, "bin")
             mkdir(bin)
+            # Downloads fail fast and offline through a proxy port that is closed.
+            proxy = listen(Sockets.localhost, 0)
+            proxy_port = getsockname(proxy)[2]
+            close(proxy)
             withenv(
+                "https_proxy" => "http://127.0.0.1:$proxy_port", "HTTPS_PROXY" => nothing, "all_proxy" => nothing, "ALL_PROXY" => nothing,
+                "no_proxy" => nothing, "NO_PROXY" => nothing,
                 "PATH" => "$bin:/usr/bin:/bin", "GH_HOST" => nothing,
                 "GH_TOKEN" => "env", "GITHUB_TOKEN" => "env", "GH_ENTERPRISE_TOKEN" => "env", "GITHUB_ENTERPRISE_TOKEN" => "env",
             ) do
@@ -175,12 +181,10 @@
                 @test_throws "`gh release download` failed for artifact `my_lib` from $(source.url). The GitHub CLI reports a missing release when it cannot read the repository. Check `gh auth status --hostname github.com`.\nrelease not found" PA.fetch_archive(source, archive, "my_lib")
 
                 # Other URLs are downloaded with the token of the GitHub CLI.
-                local_file = joinpath(directory, "local.tar.gz")
-                write(local_file, "local")
-                other = GitHubSource("file://$local_file", "github.com")
+                other = GitHubSource("https://github.com/acme/project/archive/v1.tar.gz")
+                unreachable = "while requesting $(other.url)"
                 log = fake_cli(bin, "gh", "echo gh-token")
-                PA.fetch_archive(other, archive, "my_lib")
-                @test read(archive, String) == "local"
+                @test_throws unreachable PA.fetch_archive(other, archive, "my_lib")
                 @test readlines(log) == ["auth", "token", "--hostname", "github.com"]
                 fake_cli(bin, "gh", "exit 1")
                 @test_throws "The GitHub CLI has no token for github.com. Run `gh auth login --hostname github.com`" PA.fetch_archive(other, archive, "my_lib")
@@ -210,11 +214,11 @@
                     @test readlines(log)[1:6] == ["auth", "token", "--hostname", "github.com", "release", "download"]
                     rm(log)
                     rm(state)
-                    @test_logs login PA.fetch_archive(other, archive, "my_lib")
+                    @test_logs login @test_throws unreachable PA.fetch_archive(other, archive, "my_lib")
                     @test readlines(log) == [token_check; token_check; "auth"; "login"; "--hostname"; "github.com"; token_check]
                     # A logged-in gh is asked for its token once.
                     rm(log)
-                    PA.fetch_archive(other, archive, "my_lib")
+                    @test_throws unreachable PA.fetch_archive(other, archive, "my_lib")
                     @test readlines(log) == token_check
                     # Logins run one at a time, so a second task finds the first login.
                     rm(log)
@@ -236,7 +240,7 @@
                 # A token that is set bypasses the GitHub CLI.
                 rm(log)
                 withenv("JULIA_PA_HOST_TOKEN_GITHUB_COM" => "host-token") do
-                    PA.fetch_archive(other, archive, "my_lib")
+                    @test_throws unreachable PA.fetch_archive(other, archive, "my_lib")
                     @test !isfile(log)
                 end
                 withenv("JULIA_PA_ARTIFACT_TOKEN_MY_LIB" => "bad\ntoken") do

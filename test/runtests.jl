@@ -9,6 +9,12 @@ using PrivateArtifacts: GitHubSource, GitLabSource, HTTPSource, S3Source
 
 const PA = PrivateArtifacts
 
+# Copies a local file, for tests of what happens after the download.
+struct LocalSource <: PA.Source
+    path::String
+end
+PA.fetch_archive(source::LocalSource, archive::AbstractString, artifact::AbstractString) = (cp(source.path, archive); nothing)
+
 function write_artifacts_toml(directory, artifacts)
     path = joinpath(directory, "Artifacts.toml")
     open(io -> TOML.print(io, artifacts), path, "w")

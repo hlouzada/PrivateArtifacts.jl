@@ -4,6 +4,10 @@ const GITHUB_COM = "github.com"
 struct GitHubSource <: Source
     url::String
     host::String
+    function GitHubSource(url)
+        authority = https_host(url)
+        new(url, something(github_host(authority), authority))
+    end
 end
 
 function github_host(authority::AbstractString)::Union{String, Nothing}
@@ -14,8 +18,7 @@ end
 
 function github_source(url::AbstractString, settings::AbstractDict, artifact::AbstractString)::GitHubSource
     check_settings(settings, (), "github", artifact)
-    authority = https_authority(url, artifact)
-    GitHubSource(url, something(github_host(authority), authority))
+    GitHubSource(url)
 end
 
 api_url(host::AbstractString)::String =

@@ -1,6 +1,6 @@
 @testset "GitLab" begin
     mktempdir() do directory
-        gitlab = GitLabSource("https://gitlab.example.com/api/v4/projects/1/packages/generic/lib/1/lib.tar.gz", "gitlab.example.com", PA.DEFAULT_HEADERS)
+        gitlab = GitLabSource("https://gitlab.example.com/api/v4/projects/1/packages/generic/lib/1/lib.tar.gz", PA.DEFAULT_HEADERS)
         withenv("PATH" => "") do
             @test_throws "No token for gitlab.example.com to download artifact `my_lib`. Set JULIA_PA_HOST_TOKEN_GITLAB_EXAMPLE_COM or JULIA_PA_ARTIFACT_TOKEN_MY_LIB, or install the GitLab CLI" PA.request_headers(gitlab, "my_lib")
         end

@@ -8,6 +8,12 @@ function url_authority(url::AbstractString)::Union{String, Nothing}
     m[2] in (nothing, ":443") ? host : host * m[2]
 end
 
+function https_host(url::AbstractString)::String
+    authority = url_authority(url)
+    authority === nothing && throw(ArgumentError("Not a plain https URL: $(shown(url))"))
+    authority
+end
+
 function https_authority(url::AbstractString, artifact::AbstractString)::String
     authority = url_authority(url)
     authority === nothing && error("The URL of private artifact `$artifact` is not a plain https URL: $url")

@@ -11,7 +11,7 @@ struct HTTPSource <: Source
     url::String
     host::String
     headers::Headers
-    HTTPSource(url, host, headers) = new(url, host, Tuple(headers))
+    HTTPSource(url, headers) = new(url, https_host(url), Tuple(headers))
 end
 
 function parse_headers(settings::AbstractDict, artifact::AbstractString)::Headers
@@ -31,7 +31,7 @@ end
 
 function http_source(url::AbstractString, settings::AbstractDict, artifact::AbstractString)::HTTPSource
     check_settings(settings, ("headers",), "http", artifact)
-    HTTPSource(url, https_authority(url, artifact), parse_headers(settings, artifact))
+    HTTPSource(url, parse_headers(settings, artifact))
 end
 
 cli_token(source::HTTPSource, artifact::AbstractString)::String = no_token_error(source.host, artifact)

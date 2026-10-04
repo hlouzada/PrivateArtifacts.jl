@@ -24,6 +24,7 @@ function parse_source(entry, artifact::AbstractString)::NamedTuple
     )
     kind = get(() -> infer_kind(url), entry, "kind")
     haskey(SOURCES, kind) || error("The `kind` of $context must be one of $(join(sort!(collect(keys(SOURCES))), ", ")), got `$(shown(kind))`.")
+    kind == "s3" && startswith(url, "s3://") || https_authority(url, artifact)
     settings = Dict(key => value for (key, value) in entry if !(key in ("url", "sha256", "kind")))
     source = SOURCES[kind](String(url), settings, artifact)
     (; url = String(url), source, sha256 = lowercase(sha256))

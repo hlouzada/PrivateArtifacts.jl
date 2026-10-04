@@ -9,10 +9,13 @@
     @test source_of(url) == source_of(url)
     @test source_of(url; kind = "gitlab") == source_of(url; kind = "gitlab")
     headers = ["Accept" => "*/*"]
-    unshared = HTTPSource(url, "files.example.com", headers)
+    unshared = HTTPSource(url, headers)
     push!(headers, "X-Api-Key" => "{token}")
     @test length(unshared.headers) == 1
-    @test PA.parse_source(entry("kind" => "github"), "my_lib").source == GitHubSource(url, "files.example.com")
+    @test_throws "Not a plain https URL: ftp://files.example.com/lib.tar.gz" HTTPSource("ftp://files.example.com/lib.tar.gz", ())
+    @test_throws ArgumentError GitLabSource("http://gitlab.example.com/lib.tar.gz", ())
+    @test_throws ArgumentError GitHubSource("file:///lib.tar.gz")
+    @test PA.parse_source(entry("kind" => "github"), "my_lib").source == GitHubSource(url)
 
     context = "a `[[my_lib.download_private]]` entry"
     @test_throws "Expected $context to be a table, got `$url`" PA.parse_source(url, "my_lib")
