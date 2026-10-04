@@ -1,6 +1,7 @@
-# One `[[name.download_private]]` entry. Subtypes implement
-# `fetch_archive(source, archive, artifact)` to write the archive to the path `archive`.
 abstract type Source end
+
+function fetch_archive end
+function cli_token end
 
 const Headers = Tuple{Vararg{Pair{String, String}}}
 
