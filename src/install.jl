@@ -34,6 +34,41 @@ end
 
 exit_status(process)::String = process.termsignal > 0 ? "signal $(process.termsignal)" : "exit code $(process.exitcode)"
 
+# Before Julia 1.12 the error of a failed unpack shows the environment of the
+# unpacking program including tokens. It is replaced outside the `catch`.
+# Exceptions that callers are handling stay below `depth`.
+function unpack(archive::AbstractString, artifact::AbstractString)::Base.SHA1
+    depth = length(current_exceptions())
+    unpacked = try
+        Pkg.Artifacts.create_artifact(dir -> Pkg.PlatformEngines.unpack(archive, dir))
+    catch err
+        spawned(error) = error isa ProcessFailedException || error isa Base.IOError && startswith(error.msg, "could not spawn")
+        any(spawned(entry.exception) for entry in current_exceptions()[(depth + 1):end]) || rethrow()
+        err
+    end
+    unpacked isa InterruptException && throw(InterruptException())
+    unpacked isa Exception && error(
+        "The archive of artifact `$artifact` could not be unpacked" *
+        (unpacked isa ProcessFailedException ? ", $(join((exit_status(process) for process in unpacked.procs), ", "))." : "."),
+    )
+    unpacked
+end
+
+# Copied next to the target and renamed so that the target is never partial.
+function adopt_mismatched_tree(unpacked::Base.SHA1, hash::Base.SHA1)::Nothing
+    target = Artifacts.artifact_path(hash)
+    mktempdir(dirname(target)) do staging
+        cp(Artifacts.artifact_path(unpacked), joinpath(staging, "tree"))
+        # Another process may have installed the artifact in the meantime.
+        try
+            mv(joinpath(staging, "tree"), target)
+        catch
+            Artifacts.artifact_exists(hash) || rethrow()
+        end
+    end
+    nothing
+end
+
 function install_archive(artifact::AbstractString, hash::Base.SHA1, source::Source, sha256::AbstractString)::Nothing
     mktempdir() do directory
         archive = joinpath(directory, "archive")
@@ -43,37 +78,12 @@ function install_archive(artifact::AbstractString, hash::Base.SHA1, source::Sour
         archive_sha256 == sha256 || error(
             "The archive of artifact `$artifact` has sha256 $archive_sha256, expected $sha256.",
         )
-        # Before Julia 1.12 the error of a failed unpack shows the environment of
-        # the unpacking program including tokens. It is replaced outside the `catch`.
-        # Exceptions that callers are handling stay below `depth`.
-        depth = length(current_exceptions())
-        unpacked = try
-            Pkg.Artifacts.create_artifact(dir -> Pkg.PlatformEngines.unpack(archive, dir))
-        catch err
-            spawned(error) = error isa ProcessFailedException || error isa Base.IOError && startswith(error.msg, "could not spawn")
-            any(spawned(entry.exception) for entry in current_exceptions()[(depth + 1):end]) || rethrow()
-            err
-        end
-        unpacked isa InterruptException && throw(InterruptException())
-        unpacked isa Exception && error(
-            "The archive of artifact `$artifact` could not be unpacked" *
-            (unpacked isa ProcessFailedException ? ", $(join((exit_status(process) for process in unpacked.procs), ", "))." : "."),
-        )
+        unpacked = unpack(archive, artifact)
         unpacked == hash && return
         message = "Artifact `$artifact` unpacked to git-tree-sha1 $(bytes2hex(unpacked.bytes)), expected $(bytes2hex(hash.bytes))."
         ignore_hashes() || error(message)
         @error "$message Ignoring the mismatch like Pkg does."
-        # Copied next to the target and renamed so that the target is never partial.
-        target = Artifacts.artifact_path(hash)
-        mktempdir(dirname(target)) do staging
-            cp(Artifacts.artifact_path(unpacked), joinpath(staging, "tree"))
-            # Another process may have installed the artifact in the meantime.
-            try
-                mv(joinpath(staging, "tree"), target)
-            catch
-                Artifacts.artifact_exists(hash) || rethrow()
-            end
-        end
+        adopt_mismatched_tree(unpacked, hash)
     end
     nothing
 end
