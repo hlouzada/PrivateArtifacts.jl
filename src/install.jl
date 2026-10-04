@@ -21,12 +21,8 @@ end
 # Mirrors when Pkg ignores a tree hash mismatch. Without symlink permission on
 # Windows, unpacking copies the symlinks and changes the tree hash.
 function ignore_hashes()::Bool
-    value = env("JULIA_PKG_IGNORE_HASHES")
-    if value !== nothing
-        ignore = Base.get_bool_env("JULIA_PKG_IGNORE_HASHES", false)
-        ignore === nothing && error("JULIA_PKG_IGNORE_HASHES must be true or false, got `$(escape_controls(value))`.")
-        return ignore
-    end
+    ignore = bool_env("JULIA_PKG_IGNORE_HASHES")
+    ignore === nothing || return ignore
     # Pkg before Julia 1.10.1 has no `can_symlink` and no default for Windows.
     Sys.iswindows() && isdefined(Pkg.Artifacts, :can_symlink) &&
         !mktempdir(Pkg.Artifacts.can_symlink, first(Artifacts.artifacts_dirs()))

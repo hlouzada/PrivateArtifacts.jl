@@ -10,14 +10,20 @@ function env(name::AbstractString)::Union{String, Nothing}
     isempty(value) ? nothing : value
 end
 
+# `nothing` when `name` is unset or empty.
+function bool_env(name::AbstractString)::Union{Bool, Nothing}
+    value = env(name)
+    value === nothing && return nothing
+    parsed = Base.get_bool_env(name, false)
+    parsed === nothing && error("$name must be true or false, got `$(escape_controls(value))`.")
+    parsed
+end
+
 # Without a terminal, precompilation, `Pkg.build` and captured output would wait
 # on a login prompt that nobody sees.
 function login_allowed()::Bool
-    value = env(LOGIN_ENV)
-    value === nothing && return stdin isa Base.TTY && stdout isa Base.TTY && stderr isa Base.TTY
-    allowed = Base.get_bool_env(LOGIN_ENV, false)
-    allowed === nothing && error("$LOGIN_ENV must be true or false, got `$(escape_controls(value))`.")
-    allowed
+    allowed = bool_env(LOGIN_ENV)
+    allowed === nothing ? stdin isa Base.TTY && stdout isa Base.TTY && stderr isa Base.TTY : allowed
 end
 
 artifact_token_env(artifact::AbstractString)::String = ARTIFACT_TOKEN_ENV_PREFIX * uppercase(replace(artifact, r"[^A-Za-z0-9]" => "_"))
