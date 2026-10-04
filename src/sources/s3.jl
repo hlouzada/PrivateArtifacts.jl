@@ -29,6 +29,41 @@ function percent_decode(path::AbstractString, url::AbstractString)::String
     decoded
 end
 
+function s3_uri_parts(url::AbstractString, host, region, artifact::AbstractString)::NamedTuple{(:bucket, :key, :endpoint, :region)}
+    m = match(r"^s3://([^/]*)/(.*)\z"s, url)
+    m === nothing && error("Expected an S3 URI `s3://<bucket>/<key>` for artifact `$artifact`, got $url")
+    bucket, key = m.captures
+    authority = host isa AbstractString && contains(host, r"^[A-Za-z0-9.-]+(?::[0-9]+)?\z") ? url_authority("https://$host") : nothing
+    host === nothing || authority !== nothing || error(
+        "The `host` of artifact `$artifact` must be a host name with an optional port, such as `minio.example.com:9000`, got `$(shown(host))`.",
+    )
+    (; bucket, key, endpoint = host === nothing ? nothing : "https://$authority", region)
+end
+
+function s3_https_parts(url::AbstractString, host, region, artifact::AbstractString)::NamedTuple{(:bucket, :key, :endpoint, :region)}
+    host === nothing || error(
+        "The `host` of artifact `$artifact` applies only to an `s3://` URL. An https URL names its host itself.",
+    )
+    authority = https_host(url)
+    m = match(r"^https://[^/]+/([^?#]*)\z", url)
+    m === nothing && error("Expected an S3 object URL without query or fragment for artifact `$artifact`, got $url")
+    path = percent_decode(m[1], url)
+    known = s3_endpoint(authority)
+    if known !== nothing && known.bucket !== nothing
+        bucket, key = known.bucket, path
+    else
+        bucket, key = something(match(r"^([^/]*)/?(.*)\z"s, path)).captures
+    end
+    endpoint = known === nothing ? "https://$authority" : known.endpoint
+    if known !== nothing && known.region !== nothing
+        region === nothing || region == known.region || error(
+            "The `region` of artifact `$artifact` is `$region`, but its URL names the region `$(known.region)`.",
+        )
+        region = known.region
+    end
+    (; bucket, key, endpoint, region)
+end
+
 function s3_source(url::AbstractString, settings::AbstractDict, artifact::AbstractString)::S3Source
     check_settings(settings, ("host", "region"), "s3", artifact)
     region = get(settings, "region", nothing)
@@ -36,37 +71,8 @@ function s3_source(url::AbstractString, settings::AbstractDict, artifact::Abstra
         "The `region` of artifact `$artifact` must be an AWS region name, got `$(shown(region))`.",
     )
     host = get(settings, "host", nothing)
-    if startswith(url, "s3://")
-        m = match(r"^s3://([^/]*)/(.*)\z"s, url)
-        m === nothing && error("Expected an S3 URI `s3://<bucket>/<key>` for artifact `$artifact`, got $url")
-        bucket, key = m.captures
-        authority = host isa AbstractString && contains(host, r"^[A-Za-z0-9.-]+(?::[0-9]+)?\z") ? url_authority("https://$host") : nothing
-        host === nothing || authority !== nothing || error(
-            "The `host` of artifact `$artifact` must be a host name with an optional port, such as `minio.example.com:9000`, got `$(shown(host))`.",
-        )
-        endpoint = host === nothing ? nothing : "https://$authority"
-    else
-        host === nothing || error(
-            "The `host` of artifact `$artifact` applies only to an `s3://` URL. An https URL names its host itself.",
-        )
-        authority = https_host(url)
-        m = match(r"^https://[^/]+/([^?#]*)\z", url)
-        m === nothing && error("Expected an S3 object URL without query or fragment for artifact `$artifact`, got $url")
-        path = percent_decode(m[1], url)
-        known = s3_endpoint(authority)
-        if known !== nothing && known.bucket !== nothing
-            bucket, key = known.bucket, path
-        else
-            bucket, key = something(match(r"^([^/]*)/?(.*)\z"s, path)).captures
-        end
-        endpoint = known === nothing ? "https://$authority" : known.endpoint
-        if known !== nothing && known.region !== nothing
-            region === nothing || region == known.region || error(
-                "The `region` of artifact `$artifact` is `$region`, but its URL names the region `$(known.region)`.",
-            )
-            region = known.region
-        end
-    end
+    parts = startswith(url, "s3://") ? s3_uri_parts : s3_https_parts
+    (; bucket, key, endpoint, region) = parts(url, host, region, artifact)
     contains(bucket, r"^[A-Za-z0-9][A-Za-z0-9._-]{2,254}\z") || error("Invalid S3 bucket `$(shown(bucket))` in $url")
     isempty(key) && error("The S3 URL $url names no object.")
     S3Source("s3://$bucket/$key", region, endpoint)
