@@ -11,14 +11,14 @@
     @test PA.api_url("ghe.example.com:8443") == "https://ghe.example.com:8443/api/v3"
 
     release_url(tag, file) = "https://github.com/acme/project/releases/download/$tag/$file"
-    @test PA.parse_release_url(source_of(release_url("release/v1.0.0+2", "lib.tar.gz"))) ==
-        (owner = "acme", repository = "project", tag = "release/v1.0.0+2", file = "lib.tar.gz")
-    @test PA.parse_release_url(source_of("https://GHE.example.com:8443/acme/project/releases/download/v1/lib.tar.gz")).owner == "acme"
-    @test PA.parse_release_url(GitHubSource("https://api.github.com/acme/project/releases/download/v1/lib.tar.gz")) === nothing
-    @test PA.parse_release_url(source_of("https://github.com/acme/project?x/releases/download/v1/lib.tar.gz"; kind = "github")) === nothing
-    @test PA.parse_release_url(source_of("https://api.github.com/repos/acme/project/releases/assets/1")) === nothing
-    @test PA.parse_release_url(source_of("https://github.com/acme/project/archive/refs/tags/v1.0.0.tar.gz")) === nothing
-    @test PA.parse_release_url(GitHubSource(release_url("v1", "lib.tar.gz\n"))) === nothing
+    @test source_of(release_url("release/v1.0.0+2", "lib.tar.gz")).location ==
+        PA.ReleaseURL("acme", "project", "release/v1.0.0+2", "lib.tar.gz")
+    @test source_of("https://GHE.example.com:8443/acme/project/releases/download/v1/lib.tar.gz").location.owner == "acme"
+    @test GitHubSource("https://api.github.com/acme/project/releases/download/v1/lib.tar.gz").location === nothing
+    @test source_of("https://github.com/acme/project?x/releases/download/v1/lib.tar.gz"; kind = "github").location === nothing
+    @test source_of("https://api.github.com/repos/acme/project/releases/assets/1").location === nothing
+    @test source_of("https://github.com/acme/project/archive/refs/tags/v1.0.0.tar.gz").location === nothing
+    @test GitHubSource(release_url("v1", "lib.tar.gz\n")).location === nothing
 
     release = Dict(
         "tag_name" => "v1.0.0+2",
@@ -71,14 +71,14 @@
         "https://github.com/acme/project/raw/refs/heads/main/./lib.tar.gz",
         "https://github.com/acme/project/blob/main/lib.tar.gz",
     )
-        @test PA.parse_raw_url(source_of(url)) === nothing
+        @test source_of(url).location === nothing
     end
-    @test PA.parse_raw_url(GitHubSource("https://raw.githubusercontent.com/acme/project/raw/main/lib.tar.gz")) === nothing
+    @test GitHubSource("https://raw.githubusercontent.com/acme/project/raw/main/lib.tar.gz").location === nothing
     @test PA.download_url(source_of(raw), "Authorization" => "Bearer secret") == raw
     @test isempty(PA.download_headers("https://files.example.com/acme/project/contents/lib.tar.gz"))
 
     @test source_of("https://www.github.com/acme/project/releases/download/v1/lib.tar.gz").host == "github.com"
-    @test PA.parse_release_url(source_of("https://www.github.com/acme/project/releases/download/v1/lib.tar.gz")).tag == "v1"
+    @test source_of("https://www.github.com/acme/project/releases/download/v1/lib.tar.gz").location.tag == "v1"
     for host in ("evil.github.com", "evil.github.com:443", "a.localhost", "a.acme.ghe.com")
         @test PA.gh_renames(host)
     end
@@ -151,7 +151,7 @@
                 @test !isfile(log)
 
                 # A name that `--pattern` would read as a glob is not passed to it.
-                @test !PA.gh_release_download("gh", source, PA.parse_release_url(source_of(release_url("v1", "lib[1].tar.gz"))), archive, "my_lib")
+                @test !PA.gh_download("gh", source, source_of(release_url("v1", "lib[1].tar.gz")).location, archive, "my_lib")
                 @test !isfile(log)
 
                 # The error of a CLI that cannot start does not show the environment.
