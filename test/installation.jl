@@ -71,6 +71,9 @@
                     "my_lib", Base.SHA1(wrong), local_source, sha256,
                 )
             end
+            withenv("JULIA_PKG_IGNORE_HASHES" => "\e[2J") do
+                @test_throws "JULIA_PKG_IGNORE_HASHES must be true or false, got `\\u001b[2J`." PA.ignore_hashes()
+            end
             # Pkg's override for file systems that change tree hashes.
             withenv("JULIA_PKG_IGNORE_HASHES" => "true") do
                 @test_logs (:error, "Artifact `my_lib` unpacked to git-tree-sha1 $tree_hash, expected $wrong. Ignoring the mismatch like Pkg does.") PA.install_archive(
