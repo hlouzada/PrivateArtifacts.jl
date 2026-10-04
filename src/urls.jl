@@ -27,8 +27,7 @@ end
 
 # libcurl encodes the same characters in a redirect target but writes a space in
 # the query as `+`.
-encode_location(location::AbstractString)::String =
-    replace(location, r"[^\x21-\x7E]" => c -> join("%" * uppercase(string(byte; base = 16, pad = 2)) for byte in codeunits(c)))
+encode_location(location::AbstractString)::String = percent_encode(location, r"[^\x21-\x7E]")
 
 function remove_dot_segments(path::AbstractString)::String
     segments = split(path, '/')

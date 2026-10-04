@@ -54,11 +54,10 @@ end
 
 # `+`, `&` and `=` would change the meaning of a query, and `gh api` expands
 # `{owner}`, `{repo}` and `{branch}` from the repository in its working directory.
-percent_encode(value::AbstractString)::String =
-    replace(value, r"[^A-Za-z0-9._~%/-]" => c -> join("%" * uppercase(string(byte; base = 16, pad = 2)) for byte in codeunits(c)))
+encode_endpoint_part(value::AbstractString)::String = percent_encode(value, r"[^A-Za-z0-9._~%/-]")
 
 contents_endpoint(raw::NamedTuple)::String =
-    "repos/$(raw.owner)/$(raw.repository)/contents/$(percent_encode(raw.path))?ref=$(percent_encode(raw.ref))"
+    "repos/$(raw.owner)/$(raw.repository)/contents/$(encode_endpoint_part(raw.path))?ref=$(encode_endpoint_part(raw.ref))"
 
 function download_url(source::GitHubSource, auth::Pair{String, String}; downloader::Downloads.Downloader = Downloads.Downloader())::String
     raw = parse_raw_url(source)

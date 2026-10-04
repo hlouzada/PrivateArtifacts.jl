@@ -23,3 +23,7 @@ end
 shown(value)::String = escape_string(string(value))
 
 unescape(path::AbstractString)::String = replace(path, r"%[0-9A-Fa-f]{2}" => hex -> String([parse(UInt8, hex[2:3]; base = 16)]))
+
+# Encodes each UTF-8 byte of the characters that `pattern` matches.
+percent_encode(text::AbstractString, pattern::Regex)::String =
+    replace(text, pattern => c -> join("%" * uppercase(string(byte; base = 16, pad = 2)) for byte in codeunits(c)))
