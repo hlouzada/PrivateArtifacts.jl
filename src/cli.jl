@@ -35,7 +35,10 @@ const LOGIN_LOCK = ReentrantLock()
 
 # Logins share the terminal and run one at a time. `logged_in` is checked under
 # the lock because another task may have logged in meanwhile.
-login_once(logged_in::Function, login::Function)::Union{Bool, Nothing} = lock(() -> logged_in() || login(), LOGIN_LOCK)
+login_once(logged_in::Function, login::Function)::Nothing = lock(LOGIN_LOCK) do
+    logged_in() || login()
+    nothing
+end
 
 function run_login(command::Base.AbstractCmd, shown_command::AbstractString, artifact::AbstractString, reason::AbstractString)::Nothing
     @info "Artifact `$artifact` $reason. Running `$shown_command`."
@@ -44,9 +47,12 @@ function run_login(command::Base.AbstractCmd, shown_command::AbstractString, art
     nothing
 end
 
+# `errors` must already be scrubbed.
+cli_error(message::AbstractString, errors::AbstractString) = error(rstrip("$message\n$errors"))
+
 function cli_output(command::Base.AbstractCmd, message::AbstractString)::String
     (; succeeded, output, errors) = run_cli(command, message)
-    succeeded || error(rstrip("$message\n$errors"))
+    succeeded || cli_error(message, errors)
     output
 end
 
@@ -56,13 +62,7 @@ function cli_download(command::Base.AbstractCmd, path::AbstractString, message::
     succeeded = open(file -> success(spawn(command, message, devnull, file, errors)), path, "w")
     succeeded && return
     rm(path; force = true)
-    error(rstrip("$message\n$(scrub(String(take!(errors))))"))
-end
-
-function cli_value(command::Base.AbstractCmd, message::AbstractString)::String
-    value = cli_output(command, message)
-    isempty(value) && error(message)
-    value
+    cli_error(message, scrub(String(take!(errors))))
 end
 
 # `files` maps environment variables of the CLI to paths in the directory named

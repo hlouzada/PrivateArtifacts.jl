@@ -92,7 +92,7 @@ function fetch_archive(source::S3Source, archive::AbstractString, artifact::Abst
         login_once(() -> aws_has_credentials(aws), () -> aws_login(aws, artifact))
         (; succeeded, errors) = run_cli(command, message)
     end
-    succeeded || error(rstrip("$message\n$errors"))
+    succeeded || cli_error(message, errors)
     nothing
 end
 

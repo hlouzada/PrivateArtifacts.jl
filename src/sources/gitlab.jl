@@ -44,7 +44,7 @@ function cli_token(source::GitLabSource, artifact::AbstractString)::String
             )
             (; token, errors) = glab_stored_token(glab, source.host, directory)
         end
-        token === nothing && error(rstrip("$message\n$errors"))
+        token === nothing && cli_error(message, errors)
         token
     end
 end

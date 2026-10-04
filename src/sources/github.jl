@@ -148,7 +148,9 @@ gh_login(gh::AbstractString, host::AbstractString, artifact::AbstractString)::No
 
 function gh_token(gh::AbstractString, host::AbstractString)::String
     message = "The GitHub CLI has no token for $host. Run `gh auth login --hostname $host`."
-    cli_value(gh_command(`$gh auth token --hostname $host`, host), message)
+    token = cli_output(gh_command(`$gh auth token --hostname $host`, host), message)
+    isempty(token) && error(message)
+    token
 end
 
 # `true` when gh has written the archive.
