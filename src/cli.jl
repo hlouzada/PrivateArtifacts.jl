@@ -23,10 +23,10 @@ function spawn(command::Base.AbstractCmd, message::AbstractString, streams...)::
     process
 end
 
-function run_cli(command::Base.AbstractCmd, message::AbstractString)::Tuple{Bool, String, String}
+function run_cli(command::Base.AbstractCmd, message::AbstractString)::@NamedTuple{succeeded::Bool, output::String, errors::String}
     output, errors = IOBuffer(), IOBuffer()
     process = spawn(command, message, devnull, output, errors)
-    success(process), chomp(String(take!(output))), scrub(String(take!(errors)))
+    (; succeeded = success(process), output = chomp(String(take!(output))), errors = scrub(String(take!(errors))))
 end
 
 succeeds(command::Base.AbstractCmd, message::AbstractString)::Bool = success(spawn(command, message, devnull, devnull, devnull))
@@ -45,7 +45,7 @@ function run_login(command::Base.AbstractCmd, shown_command::AbstractString, art
 end
 
 function cli_output(command::Base.AbstractCmd, message::AbstractString)::String
-    succeeded, output, errors = run_cli(command, message)
+    (; succeeded, output, errors) = run_cli(command, message)
     succeeded || error(rstrip("$message\n$errors"))
     output
 end

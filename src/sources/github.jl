@@ -137,8 +137,8 @@ function gh_renames(host::AbstractString)::Bool
 end
 
 function gh_stored_token(gh::AbstractString, host::AbstractString)::Union{String, Nothing}
-    succeeded, token, _ = run_cli(gh_command(`$gh auth token --hostname $host`, host), "Checking the GitHub CLI login failed.")
-    succeeded && !isempty(token) ? token : nothing
+    (; succeeded, output) = run_cli(gh_command(`$gh auth token --hostname $host`, host), "Checking the GitHub CLI login failed.")
+    succeeded && !isempty(output) ? output : nothing
 end
 
 gh_login(gh::AbstractString, host::AbstractString, artifact::AbstractString)::Nothing = run_login(

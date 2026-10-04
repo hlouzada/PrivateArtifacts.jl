@@ -87,10 +87,10 @@ function fetch_archive(source::S3Source, archive::AbstractString, artifact::Abst
     endpoint = source.endpoint === nothing ? `` : `--endpoint-url=$(source.endpoint)`
     command = aws_command(`$aws s3 cp $(source.uri) $archive --only-show-errors $region $endpoint`)
     message = "`aws s3 cp` failed for artifact `$artifact` from $(source.uri)."
-    succeeded, _, errors = run_cli(command, message)
+    (; succeeded, errors) = run_cli(command, message)
     if !succeeded && login_allowed() && aws_exports_credentials(aws) && !aws_has_credentials(aws)
         login_once(() -> aws_has_credentials(aws), () -> aws_login(aws, artifact))
-        succeeded, _, errors = run_cli(command, message)
+        (; succeeded, errors) = run_cli(command, message)
     end
     succeeded || error(rstrip("$message\n$errors"))
     nothing
@@ -104,7 +104,7 @@ end
 
 # `aws configure export-credentials` exists since 2.9.
 function aws_exports_credentials(aws::AbstractString)::Bool
-    succeeded, output, _ = run_cli(aws_command(`$aws --version`), "Checking the AWS CLI version failed.")
+    (; succeeded, output) = run_cli(aws_command(`$aws --version`), "Checking the AWS CLI version failed.")
     m = match(r"^aws-cli/([0-9]+\.[0-9]+\.[0-9]+)", output)
     succeeded && m !== nothing && VersionNumber(m[1]) >= v"2.9"
 end
