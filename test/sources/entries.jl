@@ -4,8 +4,14 @@
     parsed = PA.parse_source(entry(), "my_lib")
     @test (parsed.url, parsed.sha256) == (url, "a"^64)
     @test parsed.source isa HTTPSource
-    @test (parsed.source.url, parsed.source.host, parsed.source.headers) == (url, "files.example.com", ["Authorization" => "Bearer {token}"])
+    @test (parsed.source.url, parsed.source.host, parsed.source.headers) == (url, "files.example.com", ("Authorization" => "Bearer {token}",))
     @test PA.parse_source(entry("kind" => "gitlab"), "my_lib").source isa GitLabSource
+    @test source_of(url) == source_of(url)
+    @test source_of(url; kind = "gitlab") == source_of(url; kind = "gitlab")
+    headers = ["Accept" => "*/*"]
+    unshared = HTTPSource(url, "files.example.com", headers)
+    push!(headers, "X-Api-Key" => "{token}")
+    @test length(unshared.headers) == 1
     @test PA.parse_source(entry("kind" => "github"), "my_lib").source == GitHubSource(url, "files.example.com")
 
     context = "a `[[my_lib.download_private]]` entry"
@@ -34,14 +40,14 @@
     @test_throws "not a plain https URL" source_of("file:///lib.tar.gz"; kind = "github")
 
     @test source_of(url; headers = Dict("X-Api-Key" => "{token}", "Accept" => "application/octet-stream")).headers ==
-        ["Accept" => "application/octet-stream", "X-Api-Key" => "{token}"]
+        ("Accept" => "application/octet-stream", "X-Api-Key" => "{token}")
     @test isempty(source_of(url; headers = Dict()).headers)
     @test_throws "The `headers` of artifact `my_lib` must be a table of strings" source_of(url; headers = "X-Api-Key: {token}")
     @test_throws "Invalid header name `X Api` for artifact `my_lib`" source_of(url; headers = Dict("X Api" => "1"))
     @test_throws "The header `X-Api` of artifact `my_lib` must be a string without control characters" source_of(url; headers = Dict("X-Api" => "1\r\nX-Injected: yes"))
     @test_throws "must be a string without control characters" source_of(url; headers = Dict("X-Api" => 1))
     @test_throws "must be a string without control characters" source_of(url; headers = Dict("X-Api" => "\0{token}"))
-    @test source_of(url; headers = Dict("X-Api" => "a\tb")).headers == ["X-Api" => "a\tb"]
+    @test source_of(url; headers = Dict("X-Api" => "a\tb")).headers == ("X-Api" => "a\tb",)
     for name in ("Host", "host", "Transfer-Encoding", "Proxy-Authorization")
         @test_throws "Artifact `my_lib` must not set the header `$name`" source_of(url; headers = Dict(name => "x", "Authorization" => "Bearer {token}"))
     end

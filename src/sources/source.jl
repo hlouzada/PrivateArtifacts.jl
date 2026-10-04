@@ -2,6 +2,8 @@
 # `fetch_archive(source, archive, artifact)` to write the archive to the path `archive`.
 abstract type Source end
 
+const Headers = Tuple{Vararg{Pair{String, String}}}
+
 function check_settings(settings::AbstractDict, allowed::Tuple{Vararg{AbstractString}}, kind::AbstractString, artifact::AbstractString)::Nothing
     for key in keys(settings)
         key in allowed || error(

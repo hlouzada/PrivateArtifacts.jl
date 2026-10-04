@@ -4,7 +4,8 @@ const GLAB_TOKEN_ENVS = ("GITLAB_TOKEN", "GITLAB_ACCESS_TOKEN", "OAUTH_TOKEN")
 struct GitLabSource <: Source
     url::String
     host::String
-    headers::Vector{Pair{String, String}}
+    headers::Headers
+    GitLabSource(url, host, headers) = new(url, host, Tuple(headers))
 end
 
 function gitlab_source(url::AbstractString, settings::AbstractDict, artifact::AbstractString)::GitLabSource
