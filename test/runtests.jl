@@ -1,4 +1,5 @@
 using Test
+using Aqua
 using Artifacts
 using Downloads
 using TOML
@@ -63,4 +64,5 @@ withenv(AMBIENT...) do
     include("sources/github.jl")
     include("sources/s3.jl")
     include("installation.jl")
+    include("aqua.jl")
 end
