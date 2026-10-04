@@ -14,14 +14,18 @@ using SHA: SHA
 
 export @artifact_str
 
+include("text.jl")
 include("config.jl")
-include("sources.jl")
-include("http.jl")
-include("gitlab.jl")
-include("github.jl")
-include("s3.jl")
-include("entries.jl")
+include("urls.jl")
+include("cli.jl")
 include("download.jl")
-include("artifacts.jl")
+include("sources/source.jl")
+include("sources/http.jl")
+include("sources/gitlab.jl")
+include("sources/github.jl")
+include("sources/s3.jl")
+include("sources/entries.jl")
+include("install.jl")
+include("macro.jl")
 
 end

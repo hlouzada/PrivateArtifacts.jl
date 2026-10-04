@@ -71,23 +71,3 @@ function private_artifact_path(mod::Module, artifacts_toml::AbstractString, arti
     path = ensure_installed(artifact, meta, artifacts_toml)
     isempty(subpath) ? path : joinpath(path, subpath)
 end
-
-function ensure_installed(name::AbstractString, meta::AbstractDict, artifacts_toml::AbstractString)::String
-    hash = Base.SHA1(meta["git-tree-sha1"])
-    Artifacts.artifact_exists(hash) && return Artifacts.artifact_path(hash)
-    entries = meta["download_private"]
-    entries isa AbstractVector && !isempty(entries) || error(
-        "`download_private` of artifact `$name` in $artifacts_toml must be written as `[[$name.download_private]]` tables.",
-    )
-    sources = [parse_source(entry, name) for entry in entries]
-    for (index, (; url, source, sha256)) in enumerate(sources)
-        @info "Downloading private artifact `$name`" url
-        try
-            install_archive(name, hash, source, sha256)
-            return Artifacts.artifact_path(hash)
-        catch err
-            (err isa InterruptException || index == lastindex(sources)) && rethrow()
-            @warn "Fetching private artifact `$name` from $url failed. Trying the next entry." exception = (err, catch_backtrace())
-        end
-    end
-end

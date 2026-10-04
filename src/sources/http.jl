@@ -33,11 +33,6 @@ function http_source(url::AbstractString, settings::AbstractDict, artifact::Abst
     HTTPSource(url, https_authority(url, artifact), parse_headers(settings, artifact))
 end
 
-no_token_error(host::AbstractString, artifact::AbstractString, hint::AbstractString = "") = error(
-    "No token for $host to download artifact `$artifact`. " *
-    "Set $(host_token_env(host)) or $(artifact_token_env(artifact))$hint.",
-)
-
 cli_token(source::HTTPSource, artifact::AbstractString)::String = no_token_error(source.host, artifact)
 
 # `source` needs the fields of an `HTTPSource` and a method of `cli_token`.
