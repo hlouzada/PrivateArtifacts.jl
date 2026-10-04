@@ -52,11 +52,11 @@ function download_archive(
             if !(failure.response.status in REDIRECT_STATUSES)
                 message = sprint(showerror, failure)
                 redirects == 0 && error(escape_controls(message))
-                error("Downloading $(escape_string(url)) failed after a redirect: $(escape_controls(replace(message, current => redact(current))))")
+                error("Downloading $(shown(url)) failed after a redirect: $(escape_controls(replace(message, current => redact(current))))")
             end
             current = redirect_target(current, failure.response)
             origin(current) == start || (headers = filter(((name, _),) -> !(name in secrets), headers))
         end
-        error("Too many redirects from $(escape_string(url)).")
+        error("Too many redirects from $(shown(url)).")
     end
 end

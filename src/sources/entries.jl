@@ -17,7 +17,7 @@ const SOURCES = Dict(
     "http" => (url, settings, artifact) -> header_source(:http, url, settings, artifact),
 )
 
-function parse_source(entry, artifact::AbstractString)::NamedTuple
+function parse_source(entry, artifact::AbstractString)::@NamedTuple{url::String, source::Source, sha256::String}
     context = "a `[[$artifact.download_private]]` entry"
     entry isa AbstractDict || error("Expected $context to be a table, got `$(shown(entry))`.")
     url = get(entry, "url", nothing)

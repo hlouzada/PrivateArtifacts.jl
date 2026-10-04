@@ -6,7 +6,7 @@ function ensure_installed(name::AbstractString, meta::AbstractDict, artifacts_to
         "`download_private` of artifact `$name` in $artifacts_toml must be written as `[[$name.download_private]]` tables.",
     )
     sources = [parse_source(entry, name) for entry in entries]
-    for (index, (; url, source, sha256)) in enumerate(sources)
+    for (index, (; url, source, sha256)) in pairs(sources)
         @info "Downloading private artifact `$name`" url
         try
             install_archive(name, hash, source, sha256)
