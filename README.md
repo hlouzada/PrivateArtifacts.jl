@@ -1,5 +1,8 @@
 # PrivateArtifacts.jl
 
+[![CI](https://github.com/hlouzada/PrivateArtifacts.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/hlouzada/PrivateArtifacts.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/hlouzada/PrivateArtifacts.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/hlouzada/PrivateArtifacts.jl)
+
 `PrivateArtifacts` implements authenticated downloads from private sources to
 Julia's artifact system. It behaves similarly to `LazyArtifacts.jl`.
 
