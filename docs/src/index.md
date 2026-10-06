@@ -1,17 +1,12 @@
 # PrivateArtifacts.jl
 
-[![CI](https://github.com/hlouzada/PrivateArtifacts.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/hlouzada/PrivateArtifacts.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/hlouzada/PrivateArtifacts.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/hlouzada/PrivateArtifacts.jl)
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://hlouzada.github.io/PrivateArtifacts.jl/stable/)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://hlouzada.github.io/PrivateArtifacts.jl/dev/)
-
 `PrivateArtifacts` implements authenticated downloads from private sources to
 Julia's artifact system. It behaves similarly to `LazyArtifacts.jl`.
 
 Credentials come from environment variables or from the command-line tools that already manage
 them for each service: [`gh`](https://cli.github.com/) for GitHub,
 [`glab`](https://gitlab.com/gitlab-org/cli) for GitLab and the
-[AWS CLI](https://aws.amazon.com/cli/) for S3 (see [Authentication](https://hlouzada.github.io/PrivateArtifacts.jl/dev/authentication/)).
+[AWS CLI](https://aws.amazon.com/cli/) for S3 (see [Authentication](@ref)).
 
 ## Macro Usage
 
@@ -37,6 +32,3 @@ name = "libtbos"
 artifact_path = @artifact_str(name)
 windows_path = @artifact_str("libtbos", Platform("x86_64", "windows"))
 ```
-
-The [documentation](https://hlouzada.github.io/PrivateArtifacts.jl/dev/) describes the
-`download_private` entries, authentication, source kinds and hash behavior.

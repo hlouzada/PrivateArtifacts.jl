@@ -1,0 +1,9 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+PrivateArtifacts = "4c9f5c6e-2a0f-4f6d-9d0d-8b9a4f4d4c16"
+
+[sources]
+PrivateArtifacts = {path = ".."}
+
+[compat]
+Documenter = "1"
