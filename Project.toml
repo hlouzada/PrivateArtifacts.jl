@@ -1,7 +1,7 @@
 name = "PrivateArtifacts"
 uuid = "4c9f5c6e-2a0f-4f6d-9d0d-8b9a4f4d4c16"
 authors = ["Hendrik Dumith Louzada <hendriklouzada@gmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
